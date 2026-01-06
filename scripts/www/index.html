@@ -1,11 +1,427 @@
 <!DOCTYPE html>
-<html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>PakePlus</title>
-    </head>
-    <body>
-        PakePlus
-    </body>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TERMINAL 2026 | 财富觉醒终端</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Noto+Sans+SC:wght@900&display=swap');
+
+        :root {
+            --neon-green: #00ff9d;
+            --neon-gold: #ffbd2e;
+            --neon-red: #ff3e3e;
+            --neon-blue: #00d4ff;
+            --bg-dark: #050505;
+            --glass-bg: rgba(255, 255, 255, 0.03);
+            --glass-border: rgba(255, 255, 255, 0.1);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background-color: var(--bg-dark);
+            color: white;
+            font-family: 'JetBrains Mono', 'Noto Sans SC', monospace;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+        }
+
+        /* 动态背景 */
+        #canvas-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: -1;
+            filter: blur(1px);
+        }
+
+        /* 扫描线效果 */
+        body::after {
+            content: " ";
+            position: absolute;
+            top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), 
+                        linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            z-index: 1000;
+            background-size: 100% 2px, 3px 100%;
+            pointer-events: none;
+        }
+
+        /* 主容器 */
+        .container {
+            z-index: 10;
+            text-align: center;
+            width: 90%;
+            max-width: 1000px;
+            padding: 40px;
+            border-radius: 20px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(15px);
+            border: 1px solid var(--glass-border);
+            box-shadow: 0 25px 50px rgba(0,0,0,0.5);
+        }
+
+        /* 头部 */
+        .header {
+            margin-bottom: 2rem;
+        }
+
+        .status-bar {
+            font-size: 0.7rem;
+            color: var(--neon-green);
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .alert-text {
+            font-size: 3rem;
+            font-weight: 900;
+            background: linear-gradient(to bottom, #fff 20%, #888 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 30px rgba(255,255,255,0.2);
+            position: relative;
+        }
+
+        /* 3D 交互立方体 */
+        .scene {
+            width: 160px;
+            height: 160px;
+            margin: 40px auto;
+            perspective: 1000px;
+            cursor: grab;
+        }
+
+        .scene:active { cursor: grabbing; }
+
+        .cube {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 0.1s ease-out;
+        }
+
+        .cube-face {
+            position: absolute;
+            width: 160px;
+            height: 160px;
+            border: 1px solid var(--neon-gold);
+            background: rgba(255, 189, 46, 0.05);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--neon-gold);
+            box-shadow: inset 0 0 20px rgba(255, 189, 46, 0.2);
+            text-shadow: 0 0 10px var(--neon-gold);
+            backface-visibility: visible;
+        }
+
+        .face-front  { transform: rotateY(0deg) translateZ(80px); }
+        .face-back   { transform: rotateY(180deg) translateZ(80px); }
+        .face-right  { transform: rotateY(90deg) translateZ(80px); }
+        .face-left   { transform: rotateY(-90deg) translateZ(80px); }
+        .face-top    { transform: rotateX(90deg) translateZ(80px); }
+        .face-bottom { transform: rotateX(-90deg) translateZ(80px); }
+
+        /* 倒计时 */
+        .countdown {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 15px;
+            margin: 30px 0;
+        }
+
+        .time-box {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 15px 5px;
+            border-radius: 10px;
+            border: 1px solid var(--glass-border);
+        }
+
+        .time-num {
+            display: block;
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: #fff;
+            text-shadow: 0 0 10px var(--neon-blue);
+        }
+
+        .time-label {
+            font-size: 0.6rem;
+            color: #666;
+            letter-spacing: 2px;
+        }
+
+        /* 目标输入 */
+        .goal-section {
+            margin-top: 20px;
+        }
+
+        #goal-input {
+            background: transparent;
+            border: none;
+            border-bottom: 1px solid #444;
+            color: var(--neon-gold);
+            text-align: center;
+            font-family: inherit;
+            font-size: 1.2rem;
+            width: 80%;
+            padding: 10px;
+            transition: all 0.3s;
+        }
+
+        #goal-input:focus {
+            outline: none;
+            border-bottom-color: var(--neon-gold);
+            text-shadow: 0 0 10px var(--neon-gold);
+        }
+
+        /* 进度条 */
+        .progress-container {
+            width: 100%;
+            height: 4px;
+            background: #222;
+            margin-top: 40px;
+            border-radius: 2px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .progress-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, var(--neon-red), var(--neon-gold));
+            box-shadow: 0 0 15px var(--neon-red);
+            transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* 底部语录 */
+        #quote {
+            margin-top: 20px;
+            font-size: 0.8rem;
+            color: #555;
+            font-style: italic;
+        }
+
+        @media (max-width: 600px) {
+            .alert-text { font-size: 1.8rem; }
+            .countdown { grid-template-columns: repeat(3, 1fr); }
+            .time-num { font-size: 1.5rem; }
+            .scene { width: 120px; height: 120px; }
+            .cube-face { width: 120px; height: 120px; font-size: 1rem; }
+            .face-front { transform: rotateY(0deg) translateZ(60px); }
+            /* ... 适配其他面 ... */
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="canvas-bg"></canvas>
+
+    <div class="container">
+        <div class="header">
+            <div class="status-bar">
+                <span>System: Online</span>
+                <span>Security: High</span>
+                <span id="current-time">00:00:00</span>
+            </div>
+            <div class="alert-text">DESTINY 2026</div>
+        </div>
+
+        <div class="scene" id="scene">
+            <div class="cube" id="cube">
+                <div class="cube-face face-front">自律</div>
+                <div class="cube-face face-back">暴富</div>
+                <div class="cube-face face-right">HUSTLE</div>
+                <div class="cube-face face-left">执行</div>
+                <div class="cube-face face-top">MONEY</div>
+                <div class="cube-face face-bottom">觉醒</div>
+            </div>
+        </div>
+
+        <div class="countdown">
+            <div class="time-box">
+                <span class="time-num" id="d">00</span>
+                <span class="time-label">DAYS</span>
+            </div>
+            <div class="time-box">
+                <span class="time-num" id="h">00</span>
+                <span class="time-label">HOURS</span>
+            </div>
+            <div class="time-box">
+                <span class="time-num" id="m">00</span>
+                <span class="time-label">MIN</span>
+            </div>
+            <div class="time-box">
+                <span class="time-num" id="s">00</span>
+                <span class="time-label">SEC</span>
+            </div>
+            <div class="time-box" style="border-color: var(--neon-red);">
+                <span class="time-num" id="ms" style="color: var(--neon-red);">00</span>
+                <span class="time-label">MS</span>
+            </div>
+        </div>
+
+        <div class="goal-section">
+            <input type="text" id="goal-input" placeholder="输入你的 2026 最终目标..." maxlength="20">
+        </div>
+
+        <div class="progress-container">
+            <div class="progress-fill" id="bar"></div>
+        </div>
+
+        <div id="quote">正在接入意识流...</div>
+    </div>
+
+    <script>
+        // --- 1. 背景引擎 ---
+        const canvas = document.getElementById('canvas-bg');
+        const ctx = canvas.getContext('2d');
+        let width, height, columns;
+        const fontSize = 14;
+        const drops = [];
+        const chars = '0123456789ABCDEF$¥€#@%&';
+
+        function initCanvas() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+            columns = Math.floor(width / fontSize);
+            for (let i = 0; i < columns; i++) drops[i] = Math.random() * -100;
+        }
+
+        function draw() {
+            ctx.fillStyle = 'rgba(5, 5, 5, 0.1)';
+            ctx.fillRect(0, 0, width, height);
+            ctx.font = fontSize + 'px monospace';
+            
+            for (let i = 0; i < drops.length; i++) {
+                const text = chars[Math.floor(Math.random() * chars.length)];
+                const x = i * fontSize;
+                const y = drops[i] * fontSize;
+
+                // 渐变色
+                ctx.fillStyle = (Math.random() > 0.9) ? '#fff' : '#00ff9d33';
+                ctx.fillText(text, x, y);
+
+                if (y > height && Math.random() > 0.975) drops[i] = 0;
+                drops[i]++;
+            }
+            requestAnimationFrame(draw);
+        }
+        
+        window.addEventListener('resize', initCanvas);
+        initCanvas();
+        draw();
+
+        // --- 2. 交互式3D方块 ---
+        const cube = document.getElementById('cube');
+        let isDragging = false;
+        let startX, startY;
+        let rotateX = -20, rotateY = 45;
+
+        document.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            startX = e.pageX;
+            startY = e.pageY;
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!isDragging) {
+                // 没拖拽时也有轻微漂浮感
+                rotateX += 0.1;
+                rotateY += 0.2;
+            } else {
+                const dx = e.pageX - startX;
+                const dy = e.pageY - startY;
+                rotateY += dx * 0.5;
+                rotateX -= dy * 0.5;
+                startX = e.pageX;
+                startY = e.pageY;
+            }
+            cube.style.transform = `rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
+        });
+
+        document.addEventListener('mouseup', () => isDragging = false);
+
+        // --- 3. 核心倒计时逻辑 ---
+        const target = new Date('February 17, 2026 00:00:00').getTime();
+        const startTimestamp = new Date('January 1, 2025 00:00:00').getTime(); // 进度条起点
+
+        function update() {
+            const now = new Date().getTime();
+            const diff = target - now;
+
+            if (diff <= 0) {
+                document.querySelector('.alert-text').innerText = "THE TIME IS NOW";
+                return;
+            }
+
+            const d = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const h = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const s = Math.floor((diff % (1000 * 60)) / 1000);
+            const ms = Math.floor((diff % 1000) / 10);
+
+            document.getElementById('d').innerText = String(d).padStart(3, '0');
+            document.getElementById('h').innerText = String(h).padStart(2, '0');
+            document.getElementById('m').innerText = String(m).padStart(2, '0');
+            document.getElementById('s').innerText = String(s).padStart(2, '0');
+            document.getElementById('ms').innerText = String(ms).padStart(2, '0');
+
+            // 状态栏实时时间
+            document.getElementById('current-time').innerText = new Date().toLocaleTimeString();
+
+            // 进度条 (已消耗百分比)
+            const total = target - startTimestamp;
+            const elapsed = now - startTimestamp;
+            const progress = (elapsed / total) * 100;
+            document.getElementById('bar').style.width = Math.min(Math.max(progress, 0), 100) + '%';
+
+            requestAnimationFrame(update);
+        }
+        update();
+
+        // --- 4. 目标与语录系统 ---
+        const goalInput = document.getElementById('goal-input');
+        const quoteEl = document.getElementById('quote');
+
+        // 读取本地存储
+        goalInput.value = localStorage.getItem('user_goal_2026') || "";
+        goalInput.addEventListener('input', (e) => {
+            localStorage.setItem('user_goal_2026', e.target.value);
+        });
+
+        const quotes = [
+            "“你的野心必须匹配你的才华。”",
+            "“在平庸的重力下，实现第二宇宙速度。”",
+            "“代码与金钱，是这个时代的通用语言。”",
+            "“大多数人死于25岁，只是在75岁才埋葬。”",
+            "“财富不是目的，它是自由的副产品。”",
+            "“每一秒的流逝，都是你筹码的减少。”"
+        ];
+
+        setInterval(() => {
+            quoteEl.style.opacity = 0;
+            setTimeout(() => {
+                quoteEl.innerText = quotes[Math.floor(Math.random() * quotes.length)];
+                quoteEl.style.opacity = 1;
+            }, 500);
+        }, 8000);
+        quoteEl.innerText = quotes[0];
+
+    </script>
+</body>
 </html>
